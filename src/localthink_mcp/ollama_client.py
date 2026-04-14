@@ -17,7 +17,7 @@ def health_check(timeout: float = 2.0) -> bool:
         return False
 
 
-def generate(prompt: str, system: str = "", model: str = "", timeout: float = 120.0) -> str:
+def generate(prompt: str, system: str = "", model: str = "", timeout: float = 360.0) -> str:
     payload: dict = {
         "model": model or DEFAULT_MODEL,
         "prompt": prompt,
@@ -32,7 +32,7 @@ def generate(prompt: str, system: str = "", model: str = "", timeout: float = 12
         return r.json()["response"]
 
 
-def generate_fast(prompt: str, system: str = "", timeout: float = 60.0) -> str:
+def generate_fast(prompt: str, system: str = "", timeout: float = 180.0) -> str:
     """Use the fast model for lightweight ops: classify, outline, code_surface (non-Python)."""
     return generate(prompt=prompt, system=system, model=FAST_MODEL, timeout=timeout)
 
