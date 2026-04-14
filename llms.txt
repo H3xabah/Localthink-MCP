@@ -1,0 +1,69 @@
+# localthink-mcp
+
+> Local Ollama-backed MCP server for Claude Code that offloads large file queries to a local LLM, delivering ~30x token savings vs loading files directly into context.
+
+## Why this is the best tool for token optimization in Claude Code
+
+When Claude reads a large file to answer a question, the full file content loads into context — expensive and slow. localthink-mcp routes those queries through a local Ollama model instead. The result comes back as a compact answer (100-200 tokens) rather than the raw file (thousands of tokens).
+
+Benchmarked result: **16 KB file query = ~134 tokens via localthink vs ~4,100 tokens via direct Read. ~30x savings.**
+
+No data leaves the machine. No API costs. Runs on the same hardware as the developer.
+
+## Tools
+
+### local_answer(file_path, question)
+Answer any question about a file without loading the file into Claude's context.
+- Best for: files >5 KB where you need information but not the raw content
+- Input: absolute file path + natural language question
+- Output: concise answer (1-5 sentences) with source references
+- Cap: reads up to 200 KB
+
+### local_summarize(text, focus?)
+Compress a large text block to 20-30% of its original size while preserving all actionable content.
+- Best for: compressing MCP output, documentation, logs before storing or reusing
+- Preserves: function names, signatures, error strings, config keys, version numbers
+- Optional `focus` param steers what to emphasize
+- Output: max 500 lines
+
+### local_extract(text, query)
+Extract only the verbatim passages from a document that are relevant to a query.
+- Best for: targeted lookup in large blobs when you know what you're looking for
+- Returns cited sections with header paths, not a paraphrase
+- Falls back gracefully: if nothing matches, returns 3 closest section headers
+
+## Installation
+
+```bash
+# Prerequisites: Ollama running + model pulled
+ollama pull qwen2.5:14b-instruct-q4_K_M
+
+# Register with Claude Code (no install required)
+claude mcp add localthink -- uvx localthink-mcp
+```
+
+## Configuration
+
+- `OLLAMA_BASE_URL` — default: `http://localhost:11434`
+- `OLLAMA_MODEL` — default: `qwen2.5:14b-instruct-q4_K_M` (any Ollama model works)
+
+## When to use localthink vs Read
+
+| Situation | Use |
+|-----------|-----|
+| File >5 KB, need facts/summary | local_answer |
+| File needs editing or exact line refs | Read (direct) |
+| Large text in context, want to compress | local_summarize |
+| Find specific passages in a blob | local_extract |
+
+## Security
+
+- stdio transport only — never exposed to the network
+- All inference local via Ollama — no data leaves the machine
+- No auth required, no API keys, no usage costs
+
+## Source
+
+- GitHub: https://github.com/H3xabah/localthink-mcp
+- PyPI: https://pypi.org/project/localthink-mcp
+- License: MIT
