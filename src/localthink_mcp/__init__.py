@@ -1,1 +1,1 @@
-# localthink-mcp v1.1.0
+# localthink-mcp v2.1.1

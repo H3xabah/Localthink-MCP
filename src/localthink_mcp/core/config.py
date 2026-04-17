@@ -117,6 +117,7 @@ def _hot_reload() -> None:
         "core.cache",
         "core.memo",
         "core.async_batch",
+        "core.router",
     ]
     for name in mods:
         mod = sys.modules.get(name)

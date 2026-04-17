@@ -18,6 +18,14 @@ _MAIN = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b-instruct-q4_K_M")
 _FAST = os.environ.get("OLLAMA_FAST_MODEL", "") or _MAIN
 _TINY = os.environ.get("OLLAMA_TINY_MODEL", "") or _FAST
 
+
+def reload_env() -> None:
+    """Re-read model env vars. Called by config.apply_config() after GUI save."""
+    global _MAIN, _FAST, _TINY
+    _MAIN = os.environ.get("OLLAMA_MODEL", "qwen2.5:14b-instruct-q4_K_M")
+    _FAST = os.environ.get("OLLAMA_FAST_MODEL", "") or _MAIN
+    _TINY = os.environ.get("OLLAMA_TINY_MODEL", "") or _FAST
+
 # Tasks that must always use the full model
 _MAIN_TASKS = frozenset({
     "summarize", "shrink_file", "extract", "answer",

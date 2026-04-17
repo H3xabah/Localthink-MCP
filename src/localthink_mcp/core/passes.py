@@ -14,9 +14,12 @@ def run_passes(
     prompt: str,
     system: str,
     passes: int = 1,
-    timeout: float = 360.0,
+    timeout: float | None = None,
 ) -> str:
-    """Run 1–3 LLM passes over `prompt` using `system`. Returns final output string."""
+    """Run 1–3 LLM passes over `prompt` using `system`. Returns final output string.
+
+    timeout=None defers to LOCALTHINK_TIMEOUT / LOCALTHINK_FAST_TIMEOUT env vars
+    (set via local_config). Pass an explicit float to override."""
     if passes <= 1:
         from ollama_client import generate
         return generate(prompt=prompt, system=system, timeout=timeout)
@@ -24,10 +27,10 @@ def run_passes(
     from ollama_client import generate, generate_fast
     from prompts import REFINE_SYSTEM, VERIFY_SYSTEM
 
-    # Pass 1 — fast draft
-    draft = generate_fast(prompt=prompt, system=system, timeout=timeout / 2)
+    # Pass 1 — fast draft (uses LOCALTHINK_FAST_TIMEOUT when timeout=None)
+    draft = generate_fast(prompt=prompt, system=system, timeout=timeout)
 
-    # Pass 2 — main model refine
+    # Pass 2 — main model refine (uses LOCALTHINK_TIMEOUT when timeout=None)
     refine_prompt = (
         f"Original request:\n{prompt}\n\n"
         f"Draft output to improve:\n{draft}"
@@ -41,7 +44,7 @@ def run_passes(
             f"Response to check:\n{draft}"
         )
         verdict = generate_fast(
-            prompt=verify_prompt, system=VERIFY_SYSTEM, timeout=timeout / 3
+            prompt=verify_prompt, system=VERIFY_SYSTEM, timeout=timeout
         )
         if "PASS" not in verdict.upper()[:80]:
             # Gaps found — one more main refine incorporating reviewer feedback
