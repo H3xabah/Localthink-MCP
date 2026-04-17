@@ -3,14 +3,6 @@
 All notable changes to this project will be documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
-## [2.1.2] — 2026-04-17
-
-### Fixed
-
-- `local_config`: switched from `subprocess.run()` (blocking) to `subprocess.Popen()` (fire-and-forget) — the settings window now opens immediately without hanging Claude Code's request loop. Previously the MCP server was blocked waiting for the GUI to close, so the window wouldn't receive focus until the user cancelled the request.
-
----
-
 ## [2.1.1] — 2026-04-17
 
 ### Added

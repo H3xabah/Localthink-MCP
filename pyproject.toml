@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "localthink-mcp"
-version = "2.1.2"
+version = "2.1.1"
 description = "Local Ollama-backed MCP server — 45 tools, smart buffer, execution filters, persistent scratchpad, settings GUI"
 readme = "README.md"
 license = { text = "MIT" }

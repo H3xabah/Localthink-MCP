@@ -1338,26 +1338,49 @@ def local_config() -> str:
     """Open the LocalThink settings GUI.
 
     Launches a graphical settings window where you can configure:
-      - Ollama base URL and model tiers (default / fast / tiny)
-      - Timeouts, limits, cache, and memo settings
+      - Ollama base URL and connection test
+      - Default / Fast / Tiny model tiers
+      - Cache directory and TTL
+      - Memo/notes directory
 
-    The window opens immediately and this call returns right away —
-    Claude is not blocked while you make changes. Settings are saved
-    to ~/.localthink-mcp/config.json when you click Save."""
+    Settings are saved to ~/.localthink-mcp/config.json and applied
+    to the current process immediately. A server restart is required
+    for model/URL changes to take full effect in ollama_client."""
     gui_script = os.path.join(os.path.dirname(__file__), "gui", "config_gui.py")
     if not os.path.exists(gui_script):
         return "[localthink] GUI script not found — reinstall localthink-mcp."
 
+    before = _current_cfg()
+
     try:
-        subprocess.Popen([sys.executable, gui_script])
+        result = subprocess.run(
+            [sys.executable, gui_script],
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        return "[localthink] Settings window timed out."
     except Exception as e:
         return f"[localthink] Could not open settings GUI: {e}"
 
-    return (
-        "Settings window opened — make your changes and click Save.\n"
-        "The server hot-reloads timeout/limit/cache/memo changes instantly.\n"
-        "Ollama URL and model changes require restarting the MCP server."
-    )
+    if result.returncode != 0:
+        return "[localthink] Settings cancelled — no changes saved."
+
+    after = _current_cfg()
+
+    changed = {k: after[k] for k in after if after[k] != before.get(k)}
+    if not changed:
+        return "Settings saved (no values changed)."
+
+    from core.config import SCHEMA
+    lines = ["Settings saved. Changed:"]
+    for k, v in changed.items():
+        label = SCHEMA[k]["label"] if k in SCHEMA else k
+        old   = before.get(k, "")
+        lines.append(f"  {label}: {old!r} → {v!r}")
+
+    lines.append("")
+    lines.append("Restart the MCP server for model/URL changes to fully apply.")
+    return "\n".join(lines)
 
 
 def main() -> None:
