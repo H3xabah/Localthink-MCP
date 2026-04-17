@@ -23,9 +23,22 @@ CHECKPOINT_FILE   = MEMO_DIR / "CHECKPOINT.md"
 NOTES_DIR         = MEMO_DIR / "notes"
 NOTES_INDEX       = NOTES_DIR / "index.json"
 LAST_RUN_FILE     = MEMO_DIR / "last_run.json"
-COMPACT_THRESHOLD = 3000
+COMPACT_THRESHOLD = int(os.environ.get("LOCALTHINK_COMPACT_THRESHOLD", "3000"))
 VALID_SECTIONS    = {"decisions", "assumptions", "pitfalls", "open_questions"}
 VALID_CATEGORIES  = {"architecture", "gotcha", "pattern"}
+
+
+def reload_env() -> None:
+    """Re-read memo env vars into module globals. Called by config.apply_config()."""
+    global MEMO_DIR, CONTEXT_FILE, CHECKPOINT_FILE, NOTES_DIR, NOTES_INDEX
+    global LAST_RUN_FILE, COMPACT_THRESHOLD
+    MEMO_DIR          = Path(os.environ.get("LOCALTHINK_MEMO_DIR", "") or Path.home() / ".localthink-mcp")
+    CONTEXT_FILE      = MEMO_DIR / "CONTEXT.md"
+    CHECKPOINT_FILE   = MEMO_DIR / "CHECKPOINT.md"
+    NOTES_DIR         = MEMO_DIR / "notes"
+    NOTES_INDEX       = NOTES_DIR / "index.json"
+    LAST_RUN_FILE     = MEMO_DIR / "last_run.json"
+    COMPACT_THRESHOLD = int(os.environ.get("LOCALTHINK_COMPACT_THRESHOLD", "3000"))
 
 
 def _ensure_dirs() -> None:

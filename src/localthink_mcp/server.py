@@ -81,10 +81,19 @@ import core.structured as structured
 mcp = FastMCP("localthink")
 
 _UNAVAILABLE = "[localthink] Ollama is not running. Start it with: ollama serve"
-_MAX_FILE_BYTES = 200_000
-_MAX_PIPELINE_STEPS = 5
-_MAX_SCAN_FILES = 20
-_CLASSIFY_SAMPLE = 8_000
+_MAX_FILE_BYTES     = int(os.environ.get("LOCALTHINK_MAX_FILE_BYTES",     "200000"))
+_MAX_PIPELINE_STEPS = int(os.environ.get("LOCALTHINK_MAX_PIPELINE_STEPS", "5"))
+_MAX_SCAN_FILES     = int(os.environ.get("LOCALTHINK_MAX_SCAN_FILES",     "20"))
+_CLASSIFY_SAMPLE    = int(os.environ.get("LOCALTHINK_CLASSIFY_SAMPLE",    "8000"))
+
+
+def reload_env() -> None:
+    """Re-read server-level constants from env. Called by config.apply_config()."""
+    global _MAX_FILE_BYTES, _MAX_PIPELINE_STEPS, _MAX_SCAN_FILES, _CLASSIFY_SAMPLE
+    _MAX_FILE_BYTES     = int(os.environ.get("LOCALTHINK_MAX_FILE_BYTES",     "200000"))
+    _MAX_PIPELINE_STEPS = int(os.environ.get("LOCALTHINK_MAX_PIPELINE_STEPS", "5"))
+    _MAX_SCAN_FILES     = int(os.environ.get("LOCALTHINK_MAX_SCAN_FILES",     "20"))
+    _CLASSIFY_SAMPLE    = int(os.environ.get("LOCALTHINK_CLASSIFY_SAMPLE",    "8000"))
 
 
 def _read_file(path: str) -> tuple[str, str]:
@@ -1362,19 +1371,12 @@ def local_config() -> str:
     if not changed:
         return "Settings saved (no values changed)."
 
+    from core.config import SCHEMA
     lines = ["Settings saved. Changed:"]
-    labels = {
-        "ollama_base_url":   "Ollama URL",
-        "ollama_model":      "Default model",
-        "ollama_fast_model": "Fast model",
-        "ollama_tiny_model": "Tiny model",
-        "cache_dir":         "Cache dir",
-        "cache_ttl_days":    "Cache TTL (days)",
-        "memo_dir":          "Memo dir",
-    }
     for k, v in changed.items():
-        old = before.get(k, "")
-        lines.append(f"  {labels.get(k, k)}: {old!r} → {v!r}")
+        label = SCHEMA[k]["label"] if k in SCHEMA else k
+        old   = before.get(k, "")
+        lines.append(f"  {label}: {old!r} → {v!r}")
 
     lines.append("")
     lines.append("Restart the MCP server for model/URL changes to fully apply.")

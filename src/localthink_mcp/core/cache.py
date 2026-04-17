@@ -13,10 +13,15 @@ import time
 from pathlib import Path
 from typing import Callable
 
-CACHE_DIR = Path(
-    os.environ.get("LOCALTHINK_CACHE_DIR", "") or (Path.home() / ".cache" / "localthink-mcp")
-)
+CACHE_DIR     = Path(os.environ.get("LOCALTHINK_CACHE_DIR", "") or (Path.home() / ".cache" / "localthink-mcp"))
 CACHE_TTL_DAYS = int(os.environ.get("LOCALTHINK_CACHE_TTL_DAYS", "30"))
+
+
+def reload_env() -> None:
+    """Re-read cache env vars into module globals. Called by config.apply_config()."""
+    global CACHE_DIR, CACHE_TTL_DAYS
+    CACHE_DIR      = Path(os.environ.get("LOCALTHINK_CACHE_DIR", "") or (Path.home() / ".cache" / "localthink-mcp"))
+    CACHE_TTL_DAYS = int(os.environ.get("LOCALTHINK_CACHE_TTL_DAYS", "30"))
 
 
 def cache_key(tool_name: str, inputs: dict) -> str:

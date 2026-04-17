@@ -13,9 +13,15 @@ from typing import Callable
 _MAX_WORKERS = int(os.environ.get("LOCALTHINK_MAX_CONCURRENCY", "4"))
 
 
+def reload_env() -> None:
+    """Re-read concurrency env var. Called by config.apply_config()."""
+    global _MAX_WORKERS
+    _MAX_WORKERS = int(os.environ.get("LOCALTHINK_MAX_CONCURRENCY", "4"))
+
+
 def run_batch(
     callables: list[Callable[[], str]],
-    max_workers: int = _MAX_WORKERS,
+    max_workers: int | None = None,
 ) -> list[str]:
     """Run zero-argument callables in parallel; return results in original order.
 
@@ -25,7 +31,8 @@ def run_batch(
         return []
     n = len(callables)
     results: list[str] = [""] * n
-    workers = min(max_workers, n)
+    effective = max_workers if max_workers is not None else _MAX_WORKERS
+    workers = min(effective, n)
     with ThreadPoolExecutor(max_workers=workers) as pool:
         future_to_idx = {pool.submit(fn): i for i, fn in enumerate(callables)}
         for future in as_completed(future_to_idx):
