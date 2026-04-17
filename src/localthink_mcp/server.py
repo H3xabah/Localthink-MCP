@@ -10,7 +10,7 @@ New in v2.1:
   - Permanent model notes: local_note_write/search (cross-session, never cleared)
   - Extended code_surface timeout: configurable via LOCALTHINK_CODE_SURFACE_TIMEOUT
 
-Tools (44 total):
+Tools (45 total):
   Core Q&A / compression:
     local_summarize, local_extract, local_answer, local_shrink_file
     local_diff, local_diff_files, local_batch_answer
@@ -37,6 +37,8 @@ Tools (44 total):
     local_note_write, local_note_search
   Cache management:
     local_models, local_cache_stats, local_cache_clear
+  Settings:
+    local_config
 """
 import sys
 import os
@@ -46,6 +48,10 @@ import glob as _glob
 import subprocess
 
 sys.path.insert(0, os.path.dirname(__file__))
+
+# Apply saved config to os.environ before any module reads env vars.
+from core.config import load_config, current_as_dict as _current_cfg
+load_config()
 
 from mcp.server.fastmcp import FastMCP
 from ollama_client import (
@@ -1313,6 +1319,66 @@ def local_note_search(query: str, limit: int = 5) -> str:
 
     Returns top N notes across all categories."""
     return memo_store.note_search(query, limit)
+
+
+# ── Settings GUI ──────────────────────────────────────────────────────────────
+
+
+@mcp.tool()
+def local_config() -> str:
+    """Open the LocalThink settings GUI.
+
+    Launches a graphical settings window where you can configure:
+      - Ollama base URL and connection test
+      - Default / Fast / Tiny model tiers
+      - Cache directory and TTL
+      - Memo/notes directory
+
+    Settings are saved to ~/.localthink-mcp/config.json and applied
+    to the current process immediately. A server restart is required
+    for model/URL changes to take full effect in ollama_client."""
+    gui_script = os.path.join(os.path.dirname(__file__), "gui", "config_gui.py")
+    if not os.path.exists(gui_script):
+        return "[localthink] GUI script not found — reinstall localthink-mcp."
+
+    before = _current_cfg()
+
+    try:
+        result = subprocess.run(
+            [sys.executable, gui_script],
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        return "[localthink] Settings window timed out."
+    except Exception as e:
+        return f"[localthink] Could not open settings GUI: {e}"
+
+    if result.returncode != 0:
+        return "[localthink] Settings cancelled — no changes saved."
+
+    after = _current_cfg()
+
+    changed = {k: after[k] for k in after if after[k] != before.get(k)}
+    if not changed:
+        return "Settings saved (no values changed)."
+
+    lines = ["Settings saved. Changed:"]
+    labels = {
+        "ollama_base_url":   "Ollama URL",
+        "ollama_model":      "Default model",
+        "ollama_fast_model": "Fast model",
+        "ollama_tiny_model": "Tiny model",
+        "cache_dir":         "Cache dir",
+        "cache_ttl_days":    "Cache TTL (days)",
+        "memo_dir":          "Memo dir",
+    }
+    for k, v in changed.items():
+        old = before.get(k, "")
+        lines.append(f"  {labels.get(k, k)}: {old!r} → {v!r}")
+
+    lines.append("")
+    lines.append("Restart the MCP server for model/URL changes to fully apply.")
+    return "\n".join(lines)
 
 
 def main() -> None:
