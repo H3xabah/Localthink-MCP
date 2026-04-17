@@ -6,7 +6,7 @@ Offloads large file queries and document processing to Ollama so they never burn
 > v0.1.0 benchmarked at **~30× token savings** on 16 KB file queries.
 > v1.1 adds 13 new tools covering every major token-waste pattern.
 > v1.2 adds **pre-injection**: `local_improve_prompt` and `local_preplan` run locally *before* Claude sees the task — sharpening prompts and scaffolding plans so Claude executes rather than guesses.
-> v2.1 adds **smart buffer**, **execution filters**, **session scratchpad**, **persistent notes**, **response refinement**, and a **disk-backed result cache** — 14 new tools, 44 total.
+> v2.1 adds **smart buffer**, **execution filters**, **session scratchpad**, **persistent notes**, **response refinement**, and a **disk-backed result cache** — 14 new tools, 45 total.
 
 ---
 
@@ -33,7 +33,7 @@ claude mcp list   # localthink → Connected
 
 ---
 
-## All 44 tools
+## All 45 tools
 
 ### v0.1.0 — Core compression
 
@@ -171,6 +171,7 @@ plan = local_preplan(
 | `local_refine(prompt, draft, instructions?)` | Post-process an LLM draft through a refinement pass. Optional instructions target tone, brevity, or accuracy. |
 | `local_cache_stats()` | Show cache hit/miss counts, entry count, and total disk usage. |
 | `local_cache_clear()` | Evict all cached results. |
+| `local_config()` | Open the settings GUI — configure all 18 settings across Ollama, Timeouts, Limits, Cache, and Memo. Saves to `~/.localthink-mcp/config.json` and hot-reloads the running server. |
 
 ---
 
@@ -220,6 +221,7 @@ plan = local_preplan(
 | Starting a session — check for relevant prior notes | `local_note_search` |
 | LLM draft needs a quality pass | `local_refine` |
 | Check or clear the result cache | `local_cache_stats` / `local_cache_clear` |
+| Change any setting via GUI | `local_config` |
 
 ---
 
@@ -259,23 +261,63 @@ r = local_chat(r["doc"], "Show me the relevant config keys", r["history"])
 
 ## Configuration
 
-| Env var | Default | Description |
-|---------|---------|-------------|
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama endpoint |
-| `OLLAMA_MODEL` | `qwen2.5:14b-instruct-q4_K_M` | Model for all quality operations |
-| `OLLAMA_FAST_MODEL` | (same as OLLAMA_MODEL) | Lighter model for classify, outline, code_surface on non-Python |
-| `LOCALTHINK_CACHE_DIR` | OS temp dir | Directory for disk-backed result cache |
-| `CACHE_TTL_DAYS` | `7` | Cache entry time-to-live in days |
+The easiest way to configure LocalThink is to call `local_config` from Claude Code — it opens a GUI that covers every setting below.
 
-Smaller fast model example (`qwen2.5:3b` for lightweight ops):
+Settings are saved to `~/.localthink-mcp/config.json` and applied automatically on the next server start.
+
+### Ollama
+
+| Env var | Default | Recommended |
+|---------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Change only if Ollama runs on a remote machine or non-default port |
+| `OLLAMA_MODEL` | `qwen2.5:14b-instruct-q4_K_M` | Match your VRAM tier — see SETUP.md for the full table |
+| `OLLAMA_FAST_MODEL` | *(same as MODEL)* | One tier smaller than the default (e.g. `qwen2.5:7b` if default is `14b`). Used by classify, outline, translate, schema_infer |
+| `OLLAMA_TINY_MODEL` | *(same as FAST)* | `qwen2.5:3b` or smaller. Used by trivial ops on small inputs |
+
+### Timeouts
+
+| Env var | Default | Recommended |
+|---------|---------|-------------|
+| `LOCALTHINK_TIMEOUT` | `360` | `360` for 14b models · `600` for 32b+ · `120` for 7b on fast GPU |
+| `LOCALTHINK_FAST_TIMEOUT` | `180` | `60`–`180` — fast model calls should be quick |
+| `LOCALTHINK_TINY_TIMEOUT` | `60` | Rarely needs changing |
+| `LOCALTHINK_HEALTH_TIMEOUT` | `2` | Leave at `2` — this is just an Ollama ping |
+| `LOCALTHINK_CODE_SURFACE_TIMEOUT` | `600` | Increase to `900` for large TS/Go/Rust files on slow hardware |
+
+### Limits
+
+| Env var | Default | Recommended |
+|---------|---------|-------------|
+| `LOCALTHINK_MAX_FILE_BYTES` | `200000` | `200000` (~200 KB) is right for most codebases · increase to `500000` for monorepos with giant files |
+| `LOCALTHINK_MAX_PIPELINE_STEPS` | `5` | Leave at `5` unless you're building complex custom pipelines |
+| `LOCALTHINK_MAX_SCAN_FILES` | `20` | Increase to `50`–`100` for large directory scans; watch memory |
+| `LOCALTHINK_CLASSIFY_SAMPLE` | `8000` | `8000` chars is enough for most inputs — rarely needs changing |
+| `LOCALTHINK_MAX_CONCURRENCY` | `4` | `1`–`2` on low VRAM · `4` default · `6`–`8` if Ollama handles parallel slots well |
+
+### Cache
+
+| Env var | Default | Recommended |
+|---------|---------|-------------|
+| `LOCALTHINK_CACHE_DIR` | `~/.cache/localthink-mcp` | Change if the default drive is low on space |
+| `LOCALTHINK_CACHE_TTL_DAYS` | `30` | `7` if disk space is tight · `90` if you want long-lived results across projects |
+
+### Memo / Notes
+
+| Env var | Default | Recommended |
+|---------|---------|-------------|
+| `LOCALTHINK_MEMO_DIR` | `~/.localthink-mcp` | Point to a synced folder (Dropbox, OneDrive) to share notes across machines |
+| `LOCALTHINK_COMPACT_THRESHOLD` | `3000` | `1500` for faster reads · `5000` to preserve more raw content before auto-compact |
+
+### Example: 3-tier model setup
 
 ```json
 {
   "mcpServers": {
     "localthink": {
       "env": {
-        "OLLAMA_MODEL":       "qwen2.5:14b-instruct-q4_K_M",
-        "OLLAMA_FAST_MODEL":  "qwen2.5:3b-instruct"
+        "OLLAMA_MODEL":      "qwen2.5:14b-instruct-q4_K_M",
+        "OLLAMA_FAST_MODEL": "qwen2.5:7b-instruct-q4_K_M",
+        "OLLAMA_TINY_MODEL": "qwen2.5:3b"
       }
     }
   }

@@ -1,5 +1,5 @@
 # localthink-mcp Best Practices
-> v2.1 — 44 tools · caching · parallel batch · multi-pass · 3-tier models · smart buffer · scratchpad
+> v2.1 — 45 tools · caching · parallel batch · multi-pass · 3-tier models · smart buffer · scratchpad · settings GUI
 
 ---
 
@@ -10,23 +10,56 @@ This makes Claude route through localthink automatically without being asked.
 
 ---
 
-## 2. Environment Variables
+## 2. Configuration
 
-| Variable | Default | Purpose |
+**Quickest path:** call `local_config` from Claude Code — a GUI opens with all 18 settings organised into tabs. Changes are saved to `~/.localthink-mcp/config.json` and take effect immediately (Ollama URL/model changes require a server restart).
+
+**Manual env vars** (for CI or when the GUI isn't available):
+
+#### Ollama
+
+| Variable | Default | What to set |
 |---|---|---|
-| `OLLAMA_MODEL` | `qwen2.5:14b-instruct-q4_K_M` | Main model — quality-critical tasks |
-| `OLLAMA_FAST_MODEL` | falls back to `OLLAMA_MODEL` | Lightweight classification/outline/translate |
-| `OLLAMA_TINY_MODEL` | falls back to `OLLAMA_FAST_MODEL` | Trivial tasks, small inputs |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server address |
-| `LOCALTHINK_CACHE_DIR` | `~/.cache/localthink-mcp/` | Cached results location |
-| `LOCALTHINK_CACHE_TTL_DAYS` | `30` | Cache entry lifetime |
-| `LOCALTHINK_MAX_CONCURRENCY` | `4` | Max parallel Ollama calls |
-| `LOCALTHINK_CODE_SURFACE_TIMEOUT` | `600` | Timeout (s) for non-Python code_surface |
-| `LOCALTHINK_MEMO_DIR` | `~/.localthink-mcp/` | Scratchpad + notes storage |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Remote Ollama: `http://192.168.1.x:11434` |
+| `OLLAMA_MODEL` | `qwen2.5:14b-instruct-q4_K_M` | Match your VRAM tier — see SETUP.md |
+| `OLLAMA_FAST_MODEL` | *(same as MODEL)* | One tier smaller than MODEL — used for classify, outline, translate |
+| `OLLAMA_TINY_MODEL` | *(same as FAST)* | Smallest fast model, e.g. `qwen2.5:3b` — used for trivial ops |
 
-**Minimal:** `export OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M"`
+#### Timeouts (seconds)
 
-**3-tier:**
+| Variable | Default | When to change |
+|---|---|---|
+| `LOCALTHINK_TIMEOUT` | `360` | Raise to `600` for 32b+ models; lower to `120` for 7b on fast GPU |
+| `LOCALTHINK_FAST_TIMEOUT` | `180` | `60`–`180` is right for fast model calls |
+| `LOCALTHINK_TINY_TIMEOUT` | `60` | Rarely needs changing |
+| `LOCALTHINK_HEALTH_TIMEOUT` | `2` | Leave as-is — just an Ollama ping |
+| `LOCALTHINK_CODE_SURFACE_TIMEOUT` | `600` | Raise to `900` for large TS/Go/Rust on slow hardware |
+
+#### Limits
+
+| Variable | Default | When to change |
+|---|---|---|
+| `LOCALTHINK_MAX_FILE_BYTES` | `200000` | Raise to `500000` for monorepos with giant files |
+| `LOCALTHINK_MAX_PIPELINE_STEPS` | `5` | Leave unless you build custom multi-step pipelines |
+| `LOCALTHINK_MAX_SCAN_FILES` | `20` | Raise to `50`–`100` for large directory scans |
+| `LOCALTHINK_CLASSIFY_SAMPLE` | `8000` | Rarely needs changing |
+| `LOCALTHINK_MAX_CONCURRENCY` | `4` | `1`–`2` on low VRAM · `6`–`8` if Ollama handles parallel slots |
+
+#### Cache
+
+| Variable | Default | When to change |
+|---|---|---|
+| `LOCALTHINK_CACHE_DIR` | `~/.cache/localthink-mcp` | Point to a different drive if default is low on space |
+| `LOCALTHINK_CACHE_TTL_DAYS` | `30` | `7` if tight on disk · `90` for long-running projects |
+
+#### Memo / Notes
+
+| Variable | Default | When to change |
+|---|---|---|
+| `LOCALTHINK_MEMO_DIR` | `~/.localthink-mcp` | Synced folder (Dropbox, OneDrive) to share notes across machines |
+| `LOCALTHINK_COMPACT_THRESHOLD` | `3000` | `1500` for faster reads · `5000` to keep more raw notes before compact |
+
+**3-tier setup:**
 ```bash
 export OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M"
 export OLLAMA_FAST_MODEL="qwen2.5:7b-instruct-q4_K_M"
@@ -82,6 +115,7 @@ export OLLAMA_TINY_MODEL="qwen2.5:3b"
 | Check cache usage | `local_cache_stats()` | Size, TTL, location |
 | Clear cache | `local_cache_clear(older_than_days?)` | Full or selective |
 | List available models | `local_models()` | Verify server health |
+| Open settings GUI | `local_config()` | All 18 settings — Ollama, Timeouts, Limits, Cache, Memo |
 
 ---
 
@@ -212,7 +246,36 @@ local_models()   # verify
 
 ---
 
-## 10. Full Tool List (v2.1 — 44 tools)
+## 10. Settings GUI (`local_config`)
+
+Call `local_config()` from Claude Code to open a tabbed settings window.
+
+```
+local_config()
+```
+
+**What opens:**
+
+| Tab | Settings |
+|-----|----------|
+| **Ollama** | Base URL + Test button · Default model · Fast model · Tiny model (all with live dropdown from running Ollama) |
+| **Timeouts** | Main (360 s) · Fast (180 s) · Tiny (60 s) · Health check (2 s) · code_surface (600 s) |
+| **Limits** | Max file size · Pipeline steps · Scan files · Classify sample · Batch concurrency |
+| **Cache** | Cache directory (Browse) · TTL days |
+| **Memo** | Memo directory (Browse) · Compact threshold |
+
+**How it works:**
+- Live Ollama probe on open — green dot if connected, red if not, shows model count
+- Model fields auto-populate from your running Ollama instance
+- **Save** → writes `~/.localthink-mcp/config.json` → hot-reloads all module globals immediately
+- **Reset Tab** → restores defaults for the active tab only
+- **Cancel** → no changes saved
+- Limits, Cache, Memo, and Timeout changes take effect immediately — no restart needed
+- Ollama URL and model changes require a server restart (Claude Code: `/restart` or re-open)
+
+---
+
+## 11. Full Tool List (v2.1 — 45 tools)
 
 **Core Q&A / Compression:** `local_answer` · `local_summarize` · `local_extract` · `local_shrink_file` · `local_diff` · `local_diff_files` · `local_batch_answer`
 **Multi-step:** `local_pipeline` · `local_auto` · `local_chat`
@@ -225,10 +288,11 @@ local_models()   # verify
 **Scratchpad:** `local_memo_write` · `local_memo_read` · `local_memo_checkpoint`
 **Model Notes:** `local_note_write` · `local_note_search`
 **Cache / Info:** `local_models` · `local_cache_stats` · `local_cache_clear`
+**Settings:** `local_config`
 
 ---
 
-## 11. v2.1 Smart Buffer & Scratchpad
+## 12. v2.1 Smart Buffer & Scratchpad
 
 ### Smart buffer (two-phase output)
 

@@ -79,6 +79,16 @@ result = local_chat(result["doc"], question_2, result["history"])
 
 `local_auto(input, question)` — auto-selects the right operation. `local_classify(text)` for JSON recommendation.
 
+### Changing Settings
+
+Call `local_config()` to open the settings GUI. Covers all 18 settings across Ollama, Timeouts, Limits, Cache, and Memo. Saves to `~/.localthink-mcp/config.json`.
+
+Key settings worth tuning:
+- Model tiers (`OLLAMA_MODEL` / `OLLAMA_FAST_MODEL` / `OLLAMA_TINY_MODEL`) — match your hardware
+- `LOCALTHINK_TIMEOUT` — raise to `600` for 32b+ models, lower to `120` for fast 7b setups
+- `LOCALTHINK_MAX_CONCURRENCY` — `1`–`2` on low VRAM, `6`–`8` with headroom
+- `LOCALTHINK_CACHE_TTL_DAYS` — `7` if disk space is tight, `90` for long-running projects
+
 ### What NOT to Offload
 
 - Files < 5 KB · Files you are about to `Edit` · Current CLAUDE.md / task spec · Binary files / images

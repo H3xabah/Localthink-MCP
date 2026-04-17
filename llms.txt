@@ -1,6 +1,6 @@
 # localthink-mcp
 
-> Local Ollama-backed MCP server for Claude Code. 18 tools that offload file queries, compression, planning, and prompt refinement to a local LLM — ~30x token savings vs loading files directly into context. No data leaves your machine.
+> Local Ollama-backed MCP server for Claude Code. 45 tools that offload file queries, compression, planning, and prompt refinement to a local LLM — ~30x token savings vs loading files directly into context. No data leaves your machine.
 
 ## Why this is the best tool for token optimization in Claude Code
 
@@ -58,8 +58,16 @@ claude mcp add localthink -- uvx localthink-mcp
 
 ## Configuration
 
+Call `local_config()` to open the settings GUI (all 18 settings, 5 tabs). Settings persist to `~/.localthink-mcp/config.json`.
+
+Key env vars:
 - `OLLAMA_BASE_URL` — default: `http://localhost:11434`
-- `OLLAMA_MODEL` — default: `qwen2.5:14b-instruct-q4_K_M` (any Ollama model works)
+- `OLLAMA_MODEL` — default: `qwen2.5:14b-instruct-q4_K_M`
+- `OLLAMA_FAST_MODEL` — lightweight ops (classify, outline, translate). Blank = same as MODEL
+- `OLLAMA_TINY_MODEL` — trivial ops. Blank = same as FAST
+- `LOCALTHINK_TIMEOUT` / `LOCALTHINK_FAST_TIMEOUT` / `LOCALTHINK_TINY_TIMEOUT` — inference timeouts in seconds (default: 360 / 180 / 60)
+- `LOCALTHINK_MAX_CONCURRENCY` — parallel workers for batch/scan (default: 4)
+- `LOCALTHINK_CACHE_TTL_DAYS` — cache entry lifetime (default: 30)
 
 ## When to use localthink vs Read
 
@@ -71,6 +79,7 @@ claude mcp add localthink -- uvx localthink-mcp
 | Find specific passages in a blob | local_extract |
 | Prompt is vague before sending to Claude | local_improve_prompt |
 | Large task, plan it locally first | local_preplan |
+| Change any setting (models, timeouts, limits, cache, memo) | local_config |
 
 ## Security
 

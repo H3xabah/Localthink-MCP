@@ -414,20 +414,52 @@ ollama pull qwen2.5:14b-instruct-q4_K_M
 
 ## Full configuration reference
 
-All settings can go in your MCP server config (Claude Code: `.claude/settings.json` under `mcpServers.localthink.env`):
+**Quickest path:** call `local_config` from Claude Code to open the settings GUI. It covers all 18 settings with descriptions and lets you browse for directories.
+
+**Manual env vars** — add to `.claude/settings.json` under `mcpServers.localthink.env`, or set them in your shell before starting Claude Code.
+
+#### Ollama
 
 | Env var | Default | Notes |
 |---------|---------|-------|
-| `OLLAMA_MODEL` | `qwen2.5:14b-instruct-q4_K_M` | Used by all quality-sensitive tools |
-| `OLLAMA_FAST_MODEL` | (same as OLLAMA_MODEL) | Used by classify, outline, symbols, translate, schema_infer, timeline |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Change if Ollama runs on another machine |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Change if Ollama runs on a different machine or port |
+| `OLLAMA_MODEL` | `qwen2.5:14b-instruct-q4_K_M` | See tier table above for the right value for your hardware |
+| `OLLAMA_FAST_MODEL` | *(same as MODEL)* | One tier smaller — classify, outline, translate, schema_infer |
+| `OLLAMA_TINY_MODEL` | *(same as FAST)* | Smallest available — trivial ops on small inputs |
 
-**Increase timeout for very large documents:**
-The default is 120 s. For 32B+ models or documents > 50 KB add:
-```json
-{ "OLLAMA_TIMEOUT": "300" }
-```
-*(requires local source modification — not yet a built-in env var; workaround: pull a faster quantization)*
+#### Timeouts (seconds)
+
+| Env var | Default | Notes |
+|---------|---------|-------|
+| `LOCALTHINK_TIMEOUT` | `360` | Raise to `600` for 32b+ models; lower to `120` for 7b on fast GPU |
+| `LOCALTHINK_FAST_TIMEOUT` | `180` | Fast model calls — `60`–`180` is right |
+| `LOCALTHINK_TINY_TIMEOUT` | `60` | Rarely needs changing |
+| `LOCALTHINK_HEALTH_TIMEOUT` | `2` | Ollama reachability ping — leave as-is |
+| `LOCALTHINK_CODE_SURFACE_TIMEOUT` | `600` | Raise to `900` for large TS/Go/Rust on slow hardware |
+
+#### Limits
+
+| Env var | Default | Notes |
+|---------|---------|-------|
+| `LOCALTHINK_MAX_FILE_BYTES` | `200000` | ~200 KB truncation cap per file read |
+| `LOCALTHINK_MAX_PIPELINE_STEPS` | `5` | Max steps in `local_pipeline` |
+| `LOCALTHINK_MAX_SCAN_FILES` | `20` | Max files per `local_scan_dir` call |
+| `LOCALTHINK_CLASSIFY_SAMPLE` | `8000` | Chars sampled for `local_classify` |
+| `LOCALTHINK_MAX_CONCURRENCY` | `4` | Parallel workers — `1`–`2` on low VRAM, `6`–`8` with headroom |
+
+#### Cache
+
+| Env var | Default | Notes |
+|---------|---------|-------|
+| `LOCALTHINK_CACHE_DIR` | `~/.cache/localthink-mcp` | Move to a different drive if space is tight |
+| `LOCALTHINK_CACHE_TTL_DAYS` | `30` | `7` if tight on disk · `90` for long-running projects |
+
+#### Memo / Notes
+
+| Env var | Default | Notes |
+|---------|---------|-------|
+| `LOCALTHINK_MEMO_DIR` | `~/.localthink-mcp` | Synced folder shares notes across machines |
+| `LOCALTHINK_COMPACT_THRESHOLD` | `3000` | Chars before a scratchpad section auto-compacts |
 
 ---
 

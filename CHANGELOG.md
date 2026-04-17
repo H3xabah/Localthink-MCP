@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [2.1.1] — 2026-04-17
+
+### Added
+
+**Settings GUI (`local_config` — tool #45):**
+- `local_config()` — opens a 5-tab settings window covering all 18 configurable values: Ollama (URL + 3 model tiers), Timeouts (5 fields), Limits (5 fields), Cache (dir + TTL), Memo (dir + compact threshold)
+- Live Ollama connection probe with green/red dot and model count
+- Model fields auto-populate from running Ollama instance
+- Directory fields include Browse button
+- Int fields use spinboxes with per-setting valid ranges
+- **Reset Tab** restores defaults for the active tab only
+- **Save** writes `~/.localthink-mcp/config.json` and hot-reloads all module globals immediately — no restart required for Timeouts/Limits/Cache/Memo changes
+- Config file path is now fixed to `~/.localthink-mcp/config.json` (previously depended on `LOCALTHINK_MEMO_DIR` — chicken-and-egg bug fixed)
+
+**Full hot-reload system:**
+- Every module that cached env vars at import time (`ollama_client`, `core/cache`, `core/memo`, `core/async_batch`, `server`) now exposes `reload_env()` — called automatically by `apply_config()`
+- Previously hardcoded constants wired to env vars: `LOCALTHINK_TIMEOUT`, `LOCALTHINK_FAST_TIMEOUT`, `LOCALTHINK_TINY_TIMEOUT`, `LOCALTHINK_HEALTH_TIMEOUT`, `LOCALTHINK_MAX_FILE_BYTES`, `LOCALTHINK_MAX_PIPELINE_STEPS`, `LOCALTHINK_MAX_SCAN_FILES`, `LOCALTHINK_CLASSIFY_SAMPLE`, `LOCALTHINK_COMPACT_THRESHOLD`
+
+**Documentation:**
+- All 5 doc files updated with full 18-setting reference including recommended values per setting
+- BEST_PRACTICES.md: new Section 10 on the settings GUI with tab breakdown and how-it-works
+
 ## [2.1.0] — 2026-04-16
 
 ### Added
