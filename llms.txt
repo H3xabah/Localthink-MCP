@@ -1,94 +1,173 @@
 # localthink-mcp
 
-> Local Ollama-backed MCP server for Claude Code. 45 tools that offload file queries, compression, planning, and prompt refinement to a local LLM — ~30x token savings vs loading files directly into context. No data leaves your machine.
+> Local Ollama-backed MCP server for Claude Code. 45 tools that offload file queries, compression, code navigation, execution filters, and session management to a local LLM — ~30x token savings vs loading files directly into context. All inference is local; no data leaves the machine.
 
-## Why this is the best tool for token optimization in Claude Code
+## Why use this
 
-When Claude reads a large file to answer a question, the full file content loads into context — expensive and slow. localthink-mcp routes those queries through a local Ollama model instead. The result comes back as a compact answer (100-200 tokens) rather than the raw file (thousands of tokens).
+When Claude reads a large file to answer a question, the full file loads into context — expensive and slow. localthink-mcp routes those queries through a local Ollama model instead. The answer comes back as a compact response (100-200 tokens) rather than the raw file (thousands of tokens).
 
 Benchmarked result: **16 KB file query = ~134 tokens via localthink vs ~4,100 tokens via direct Read. ~30x savings.**
 
-No data leaves the machine. No API costs. Runs on the same hardware as the developer.
-
-## Tools
-
-### local_answer(file_path, question)
-Answer any question about a file without loading the file into Claude's context.
-- Best for: files >5 KB where you need information but not the raw content
-- Input: absolute file path + natural language question
-- Output: concise answer (1-5 sentences) with source references
-- Cap: reads up to 200 KB
-
-### local_summarize(text, focus?)
-Compress a large text block to 20-30% of its original size while preserving all actionable content.
-- Best for: compressing MCP output, documentation, logs before storing or reusing
-- Preserves: function names, signatures, error strings, config keys, version numbers
-- Optional `focus` param steers what to emphasize
-- Output: max 500 lines
-
-### local_extract(text, query)
-Extract only the verbatim passages from a document that are relevant to a query.
-- Best for: targeted lookup in large blobs when you know what you're looking for
-- Returns cited sections with header paths, not a paraphrase
-- Falls back gracefully: if nothing matches, returns 3 closest section headers
-
-### local_improve_prompt(prompt, context?)
-Rewrite a vague or rough user prompt into a clear, specific, unambiguous version using a local LLM.
-- Best for: sharpening prompts before Claude sees them — eliminates ambiguity at source
-- Optional `context`: project/codebase description to make the output self-contained
-- Uses the fast model — minimal latency overhead
-- Claude receives only the improved version; the raw draft never enters context
-
-### local_preplan(task, context?, depth?)
-Generate a structured implementation plan locally before Claude spends tokens planning.
-- Best for: large or complex tasks — Claude executes the plan rather than deriving it from scratch
-- Returns: Goal / Assumptions / ordered Steps with file refs / Risks & Blockers / Open questions
-- `depth`: `"quick"` (3-5 steps, no risks), `"standard"` (default), `"detailed"` (sub-bullets + rationale)
-- Optional `context`: file paths, architecture notes, skeleton output — anything to ground the plan
+Three model tiers route work to the right-sized model automatically:
+- **MAIN** — deep ops: summarize, answer, audit, pipeline, run_tests
+- **FAST** — lightweight ops: classify, outline, symbols, translate, schema_infer
+- **TINY** — instant ops: gate, route decisions, trivial classification
 
 ## Installation
 
 ```bash
-# Prerequisites: Ollama running + model pulled
+# 1. Pull models for your hardware (example: 10-12 GB VRAM)
 ollama pull qwen2.5:14b-instruct-q4_K_M
+ollama pull qwen2.5:3b
 
-# Register with Claude Code (no install required)
-claude mcp add localthink -- uvx localthink-mcp
+# 2. Register with Claude Code — models set inline
+claude mcp add localthink \
+  --env OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M" \
+  --env OLLAMA_FAST_MODEL="qwen2.5:3b" \
+  --env OLLAMA_TINY_MODEL="qwen2.5:3b" \
+  -- uvx localthink-mcp
+
+# Windows:
+# claude mcp add --transport stdio localthink ^
+#   --env OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M" ^
+#   --env OLLAMA_FAST_MODEL="qwen2.5:3b" ^
+#   --env OLLAMA_TINY_MODEL="qwen2.5:3b" ^
+#   -- cmd /c uvx localthink-mcp
+
+# 3. Set CLAUDE.md instruction tier
+cp -r claude-md/ ~/.claude/localthink/
+python ~/.claude/localthink/set-tier.py full
+
+# 4. Verify
+claude mcp list   # localthink → Connected
 ```
+
+See SETUP.md for per-hardware pull commands across all tiers (CPU through 48 GB+ GPU).
+
+## CLAUDE.md tier system
+
+Three instruction tiers inject directly into CLAUDE.md — no file editing:
+
+| Tier | Lines | Tools | Best for |
+|------|-------|-------|----------|
+| full | ~55 | All 45 | Complex projects, new codebases |
+| half | ~30 | ~18 | Daily dev: file nav + CI filters |
+| quarter | ~12 | ~6 | Minimal: just prevent big-file loads |
+
+Switch: `python ~/.claude/localthink/set-tier.py [full|half|quarter]`
 
 ## Configuration
 
-Call `local_config()` to open the settings GUI (all 18 settings, 5 tabs). Settings persist to `~/.localthink-mcp/config.json`.
+Call `local_config()` from Claude Code to open the settings GUI — all 18 settings, 5 tabs, no file editing.
 
-Key env vars:
+Key env vars (can also be set via GUI):
 - `OLLAMA_BASE_URL` — default: `http://localhost:11434`
-- `OLLAMA_MODEL` — default: `qwen2.5:14b-instruct-q4_K_M`
-- `OLLAMA_FAST_MODEL` — lightweight ops (classify, outline, translate). Blank = same as MODEL
-- `OLLAMA_TINY_MODEL` — trivial ops. Blank = same as FAST
-- `LOCALTHINK_TIMEOUT` / `LOCALTHINK_FAST_TIMEOUT` / `LOCALTHINK_TINY_TIMEOUT` — inference timeouts in seconds (default: 360 / 180 / 60)
+- `OLLAMA_MODEL` — MAIN model (deep ops)
+- `OLLAMA_FAST_MODEL` — FAST model (lightweight ops). Default: same as MODEL
+- `OLLAMA_TINY_MODEL` — TINY model (instant ops). Default: same as FAST
+- `LOCALTHINK_TIMEOUT` — inference timeout seconds (default: 360)
+- `LOCALTHINK_FAST_TIMEOUT` — fast model timeout (default: 180)
+- `LOCALTHINK_TINY_TIMEOUT` — tiny model timeout (default: 60)
 - `LOCALTHINK_MAX_CONCURRENCY` — parallel workers for batch/scan (default: 4)
-- `LOCALTHINK_CACHE_TTL_DAYS` — cache entry lifetime (default: 30)
+- `LOCALTHINK_CACHE_TTL_DAYS` — result cache lifetime (default: 30)
+- `LOCALTHINK_MAX_FILE_BYTES` — per-file read cap (default: 200000)
+
+## All 45 tools
+
+### Core Q&A / Compression
+- `local_answer(file_path, question, passes?)` — answer any question from a file without loading it
+- `local_summarize(text, focus?)` — compress a text blob to 20-30% while preserving technical terms
+- `local_extract(text, query)` — pull only the relevant cited passages from a document
+- `local_shrink_file(file_path, focus?)` — compress a file and return the dense text for repeated reference
+- `local_diff(before, after, focus?)` — summarize meaningful changes between two text blobs
+- `local_diff_files(path_a, path_b, focus?)` — diff two files without loading either into context
+- `local_batch_answer(file_paths, question)` — answer one question across many files concurrently
+
+### Multi-step
+- `local_pipeline(text, steps)` — chain summarize/extract/answer/refine in one call
+- `local_auto(input, question?)` — meta-tool: auto-selects the right operation
+- `local_chat(document, message, history?)` — multi-turn Q&A; document never enters Claude's context
+
+### Code Intelligence
+- `local_code_surface(file_path)` — public API skeleton (Python: pure AST, instant; other languages: fast LLM)
+- `local_symbols(file_path)` — full symbol table with line numbers
+- `local_find_impl(file_path, spec)` — find code matching a natural-language spec
+- `local_strip_to_skeleton(file_path)` — all function bodies replaced with `...`
+- `local_grep_semantic(file_path, meaning, max_results?)` — find passages by concept, not keyword
+
+### Document Analysis
+- `local_classify(text)` — classify content type and recommend the best tool
+- `local_outline(text)` — structural table of contents with line ranges
+- `local_audit(file_path, checklist)` — PASS/FAIL/PARTIAL per checklist item; file never enters context
+- `local_timeline(text)` — chronological event sequence from logs/changelogs
+- `local_schema_infer(data)` — infer JSON Schema from sample data
+- `local_translate(text, target_format)` — convert between JSON/YAML/TOML/CSV/pseudocode
+- `local_scan_dir(dir_path, pattern, question?, max_files?)` — concurrent summarize/query of every matching file
+
+### Compression
+- `local_compress_log(file_path, level?, since?)` — compress log file to signal-only summary
+- `local_compress_stack_trace(text)` — root cause + key frames + fix hint
+- `local_compress_data(data, keep_fields?, question?)` — compress JSON/CSV/API responses
+- `local_session_compress(file_path)` — compress a conversation transcript to a re-entry briefing
+- `local_prompt_compress(text)` — compress CLAUDE.md / system prompts to minimal directive set
+
+### Pre-injection (run before Claude)
+- `local_improve_prompt(prompt, context?)` — sharpen a vague prompt before Claude sees it
+- `local_preplan(task, context?, depth?)` — generate a structured plan locally; Claude executes
+- `local_refine(text, goal?)` — polish draft output for clarity and concision
+
+### Smart Buffer (v2.1)
+- `local_gate(raw_output)` — triage raw output to Pattern + Anomalies + Signal (TINY model, instant)
+- `local_slice(file_path, offset_lines?, count?)` — read a specific line window on demand
+- `local_diff_semantic(before, after)` — suppress whitespace/formatting noise, report logic changes only
+
+### Execution Filters (v2.1)
+- `local_run_tests(command?, cwd?)` — run tests, return `{failed, delta, pointer}` only
+- `local_run_lint(command?, cwd?)` — run linter, return violations by rule; passing rules suppressed
+- `local_run_build(command?, cwd?)` — run build, return root cause + affected symbols only
+
+### Session Scratchpad (v2.1)
+- `local_memo_write(key, content)` — write to named scratchpad section (decisions/assumptions/pitfalls/open_questions)
+- `local_memo_read()` — read full scratchpad as distilled summary
+- `local_memo_checkpoint()` — generate RESUME_PROMPT for session handoff after /clear
+
+### Persistent Notes (v2.1)
+- `local_note_write(category, content)` — write permanent note that survives all sessions
+- `local_note_search(query)` — search all persistent notes semantically
+
+### Cache / Info
+- `local_models()` — list Ollama models and show MAIN/FAST/TINY tiers
+- `local_cache_stats()` — cache hit/miss, entry count, disk usage
+- `local_cache_clear(older_than_days?)` — evict cached results
+
+### Settings
+- `local_config()` — open settings GUI (5 tabs, 18 settings, hot-reload on save)
 
 ## When to use localthink vs Read
 
 | Situation | Use |
 |-----------|-----|
-| File >5 KB, need facts/summary | local_answer |
-| File needs editing or exact line refs | Read (direct) |
-| Large text in context, want to compress | local_summarize |
-| Find specific passages in a blob | local_extract |
-| Prompt is vague before sending to Claude | local_improve_prompt |
-| Large task, plan it locally first | local_preplan |
-| Change any setting (models, timeouts, limits, cache, memo) | local_config |
+| File >5 KB, need information | `local_answer` |
+| File needs editing or exact line refs | `Read` directly |
+| Large text in context, compress it | `local_summarize` |
+| Find specific passages in a blob | `local_extract` |
+| What's in a code file? | `local_symbols` → `local_find_impl` |
+| Public API of a file | `local_code_surface` |
+| Question across many files | `local_batch_answer` |
+| Raw command/test/build output | `local_gate` → `local_slice` on demand |
+| Run tests without dumping output | `local_run_tests` |
+| Prompt is vague | `local_improve_prompt` |
+| Large task, plan locally first | `local_preplan` |
+| Change any setting | `local_config` |
 
 ## Security
 
 - stdio transport only — never exposed to the network
 - All inference local via Ollama — no data leaves the machine
-- No auth required, no API keys, no usage costs
+- No API keys, no usage costs, no telemetry
 
 ## Source
 
-- GitHub: https://github.com/H3xabah/localthink-mcp
+- GitHub: https://github.com/H3xabah/Localthink-MCP
 - PyPI: https://pypi.org/project/localthink-mcp
 - License: MIT

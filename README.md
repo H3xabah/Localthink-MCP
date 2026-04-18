@@ -390,19 +390,16 @@ Settings are saved to `~/.localthink-mcp/config.json`. You can also set any valu
 
 ### Example: 3-tier model setup
 
-```json
-{
-  "mcpServers": {
-    "localthink": {
-      "env": {
-        "OLLAMA_MODEL":      "qwen2.5:14b-instruct-q4_K_M",
-        "OLLAMA_FAST_MODEL": "qwen2.5:7b-instruct-q4_K_M",
-        "OLLAMA_TINY_MODEL": "qwen2.5:3b"
-      }
-    }
-  }
-}
+```bash
+# Pass models inline at registration — no file editing needed
+claude mcp add localthink \
+  --env OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M" \
+  --env OLLAMA_FAST_MODEL="qwen2.5:7b-instruct-q4_K_M" \
+  --env OLLAMA_TINY_MODEL="qwen2.5:3b" \
+  -- uvx localthink-mcp
 ```
+
+Change models any time with `local_config` (Ollama tab → Save → reconnect MCP).
 
 ---
 
@@ -411,21 +408,35 @@ Settings are saved to `~/.localthink-mcp/config.json`. You can also set any valu
 ### uvx (recommended — zero setup)
 
 ```bash
-claude mcp add localthink -- uvx localthink-mcp
+claude mcp add localthink \
+  --env OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M" \
+  --env OLLAMA_FAST_MODEL="qwen2.5:3b" \
+  --env OLLAMA_TINY_MODEL="qwen2.5:3b" \
+  -- uvx localthink-mcp
 ```
 
 ### pip
 
 ```bash
 pip install localthink-mcp
-claude mcp add localthink -- localthink-mcp
+claude mcp add localthink \
+  --env OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M" \
+  --env OLLAMA_FAST_MODEL="qwen2.5:3b" \
+  --env OLLAMA_TINY_MODEL="qwen2.5:3b" \
+  -- localthink-mcp
 ```
 
 ### Windows — if `uvx` isn't on Claude's PATH
 
 ```bash
-claude mcp add --transport stdio localthink -- cmd /c uvx localthink-mcp
+claude mcp add --transport stdio localthink ^
+  --env OLLAMA_MODEL="qwen2.5:14b-instruct-q4_K_M" ^
+  --env OLLAMA_FAST_MODEL="qwen2.5:3b" ^
+  --env OLLAMA_TINY_MODEL="qwen2.5:3b" ^
+  -- cmd /c uvx localthink-mcp
 ```
+
+Substitute models for your hardware — see [SETUP.md](SETUP.md) for the full tier table.
 
 ---
 
