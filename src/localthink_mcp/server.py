@@ -57,16 +57,15 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(__file__))
 
 # Apply saved config to os.environ before any module reads env vars.
-from core.config import load_config, current_as_dict as _current_cfg
+from core.config import load_config
 load_config()
 
-from mcp.server.fastmcp import FastMCP
-from ollama_client import (
-    generate, generate_fast, generate_tiny, generate_json,
+from mcp.server.fastmcp import FastMCP  # noqa: E402
+from ollama_client import (  # noqa: E402
+    generate,
     health_check, list_models,
-    DEFAULT_MODEL, FAST_MODEL, TINY_MODEL,
 )
-from prompts import (
+from prompts import (  # noqa: E402
     SUMMARIZE_SYSTEM, EXTRACT_SYSTEM, ANSWER_SYSTEM, DIFF_SYSTEM,
     CHAT_SYSTEM, AUTO_SYSTEM, SEMANTIC_GREP_SYSTEM, SCAN_DIR_SYSTEM,
     CODE_SURFACE_SYSTEM, OUTLINE_SYSTEM, AUDIT_SYSTEM, CLASSIFY_SYSTEM,
@@ -75,15 +74,15 @@ from prompts import (
     FIND_IMPL_SYSTEM, SKELETON_SYSTEM, TRANSLATE_SYSTEM, SCHEMA_INFER_SYSTEM,
     TIMELINE_SYSTEM, IMPROVE_PROMPT_SYSTEM, PREPLAN_SYSTEM,
     REFINE_SYSTEM,
-    MEMO_COMPACT_SYSTEM, GATE_SUMMARY_SYSTEM, DIFF_SEMANTIC_SYSTEM,
+    GATE_SUMMARY_SYSTEM, DIFF_SEMANTIC_SYSTEM,
 )
-from code_surface import extract_python_surface
-import core.cache as cache
-import core.router as router
-import core.memo as memo_store
-from core.async_batch import run_batch
-from core.passes import run_passes
-import core.structured as structured
+from code_surface import extract_python_surface  # noqa: E402
+import core.cache as cache  # noqa: E402
+import core.router as router  # noqa: E402
+import core.memo as memo_store  # noqa: E402
+from core.async_batch import run_batch  # noqa: E402
+from core.passes import run_passes  # noqa: E402
+import core.structured as structured  # noqa: E402
 
 mcp = FastMCP("localthink")
 
@@ -844,7 +843,7 @@ def local_explain_error(error_text: str, file_path: str = "", passes: int = 1) -
                 lines = content.splitlines()
                 start, end = max(0, ln - 10), min(len(lines), ln + 5)
                 file_ctx = "\n".join(
-                    f"{i + 1}: {l}" for i, l in enumerate(lines[start:end], start=start)
+                    f"{i + 1}: {ln}" for i, ln in enumerate(lines[start:end], start=start)
                 )
 
     system = (
@@ -1059,7 +1058,7 @@ def local_gate(raw_output: str, budget_tokens: int = 400) -> str:
     if not health_check():
         # Regex fallback — count lines, find ERROR/WARN/FAIL
         lines = raw_output.splitlines()
-        errors = [l for l in lines if re.search(r"\b(ERROR|WARN|FAIL)\b", l, re.I)]
+        errors = [line for line in lines if re.search(r"\b(ERROR|WARN|FAIL)\b", line, re.I)]
         summary = (
             f"Pattern: {len(lines)} lines total\n"
             f"Anomalies:\n"
@@ -1078,7 +1077,7 @@ def local_gate(raw_output: str, budget_tokens: int = 400) -> str:
     paths = re.findall(_file_pat, raw_output)
     if paths:
         # Extract first anomaly line for context_hint
-        anomaly_lines = [l for l in summary.splitlines() if l.startswith("- ")]
+        anomaly_lines = [line for line in summary.splitlines() if line.startswith("- ")]
         hint = anomaly_lines[0].lstrip("- ")[:60] if anomaly_lines else "see anomalies"
         summary += f'\nPointer: {{"file": "{paths[0]}", "context_hint": "{hint}"}}'
 
@@ -1407,7 +1406,7 @@ def local_run_build() -> str:
         if r.returncode == 0:
             return json.dumps({"built": True, "warnings": 0})
         err_out = (r.stdout + r.stderr).strip()
-        err_lines = [l for l in err_out.splitlines() if "Error" in l or "error" in l]
+        err_lines = [line for line in err_out.splitlines() if "Error" in line or "error" in line]
         root_msg = err_lines[0] if err_lines else (err_out.splitlines()[0] if err_out else "syntax error")
         file_m = re.search(r'File "([^"]+)"', root_msg)
         file_ref = os.path.relpath(file_m.group(1), cwd) if file_m else "unknown"
@@ -1438,7 +1437,7 @@ def local_run_build() -> str:
         return json.dumps({"built": True, "warnings": warnings})
 
     # Find root cause — first error line
-    err_lines = [l for l in output.splitlines() if re.search(r"(?i)error:", l)]
+    err_lines = [line for line in output.splitlines() if re.search(r"(?i)error:", line)]
     root_line = err_lines[0] if err_lines else output.splitlines()[0] if output else "unknown error"
     symbols = re.findall(r"\b[A-Z][a-zA-Z_]+\b", root_line)
     surface_idx = output.splitlines().index(root_line) if root_line in output else 0

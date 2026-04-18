@@ -9,7 +9,6 @@ Run directly:  python -m localthink_mcp.gui.config_gui
 """
 from __future__ import annotations
 
-import os
 import sys
 import threading
 import tkinter as tk

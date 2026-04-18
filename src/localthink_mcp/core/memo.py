@@ -11,7 +11,9 @@ Model notes: ~/.localthink-mcp/notes/
   Index: notes/index.json — [{id, ts, category, text}]
 """
 from __future__ import annotations
-import json, os, re
+import json
+import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -226,9 +228,9 @@ def memo_checkpoint() -> str:
             )
         result = _try_compact(content, MEMO_COMPACT_SYSTEM)
         if result:
-            bullets = [l.strip() for l in result.splitlines() if l.strip().startswith("-")][:3]
+            bullets = [line.strip() for line in result.splitlines() if line.strip().startswith("-")][:3]
         else:
-            bullets = [l.strip() for l in content.splitlines() if l.strip()][:3]
+            bullets = [line.strip() for line in content.splitlines() if line.strip()][:3]
         compacted[sec_name] = bullets
 
     # Extract file paths from all sections
